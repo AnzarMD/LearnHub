@@ -1,0 +1,43 @@
+{
+  "name": "learnhub-backend",
+  "version": "1.0.0",
+  "description": "Production-ready backend for LearnHub EdTech Platform",
+  "main": "server.js",
+  "scripts": {
+    "start":       "node server.js",
+    "dev":         "nodemon server.js",
+    "db:migrate":  "npx prisma migrate dev",
+    "db:generate": "npx prisma generate",
+    "db:studio":   "npx prisma studio",
+    "db:seed":     "node prisma/seed.js",
+    "db:reset":    "npx prisma migrate reset --force && node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client":     "^5.10.2",
+    "bcryptjs":           "^2.4.3",
+    "compression":        "^1.7.4",
+    "cookie-parser":      "^1.4.6",
+    "cors":               "^2.8.5",
+    "dotenv":             "^16.4.5",
+    "express":            "^4.18.3",
+    "express-rate-limit": "^7.2.0",
+    "helmet":             "^7.1.0",
+    "joi":                "^17.12.2",
+    "jsonwebtoken":       "^9.0.2",
+    "morgan":             "^1.10.0",
+    "multer":             "^1.4.5-lts.1",
+    "nodemailer":         "^6.9.12",
+    "socket.io":          "^4.7.4",
+    "swagger-jsdoc":      "^6.2.8",
+    "swagger-ui-express": "^5.0.0",
+    "uuid":               "^9.0.1",
+    "winston":            "^3.13.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "prisma":  "^5.10.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

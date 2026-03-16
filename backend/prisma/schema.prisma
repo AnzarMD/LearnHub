@@ -1,0 +1,648 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum AssignmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum SubmissionStatus {
+  PENDING
+  SUBMITTED
+  GRADED
+  LATE
+  RESUBMIT
+}
+
+enum TestStatus {
+  DRAFT
+  PUBLISHED
+  ACTIVE
+  CLOSED
+}
+
+enum QuestionType {
+  MCQ
+  SHORT_ANSWER
+  LONG_ANSWER
+  TRUE_FALSE
+}
+
+enum NotificationType {
+  ASSIGNMENT
+  TEST
+  GRADE
+  ATTENDANCE
+  ANNOUNCEMENT
+  CLASS
+  MESSAGE
+  ALERT
+  SYSTEM
+}
+
+enum MessageType {
+  DIRECT
+  GROUP
+  ANNOUNCEMENT
+}
+
+enum LogLevel {
+  INFO
+  WARNING
+  ERROR
+  DEBUG
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// ─── User & Profiles ──────────────────────────────────────────────────────────
+
+model User {
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  password              String
+  role                  Role
+  firstName             String
+  lastName              String
+  phone                 String?
+  avatar                String?
+  isActive              Boolean   @default(true)
+  isEmailVerified       Boolean   @default(false)
+  emailVerifyToken      String?
+  passwordResetToken    String?
+  passwordResetExpires  DateTime?
+  lastLoginAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
+
+  refreshTokens   RefreshToken[]
+  studentProfile  StudentProfile?
+  teacherProfile  TeacherProfile?
+  parentProfile   ParentProfile?
+  adminProfile    AdminProfile?
+  sentMessages    Message[]        @relation("SentMessages")
+  notifications   Notification[]
+  activityLogs    ActivityLog[]
+  announcements   Announcement[]
+
+  @@index([email])
+  @@index([role])
+  @@index([deletedAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model AdminProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department  String?
+  permissions String[] @default([])
+}
+
+model StudentProfile {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rollNumber     String    @unique
+  dateOfBirth    DateTime?
+  gender         Gender?
+  address        String?
+  guardianName   String?
+  guardianPhone  String?
+  admissionDate  DateTime  @default(now())
+  classId        String?
+  class          Class?    @relation(fields: [classId], references: [id])
+
+  attendances  Attendance[]
+  submissions  Submission[]
+  testAttempts TestAttempt[]
+  parentLinks  ParentStudentLink[]
+  grades       Grade[]
+
+  @@index([rollNumber])
+  @@index([classId])
+}
+
+model TeacherProfile {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId     String    @unique
+  qualification  String?
+  specialization String?
+  joiningDate    DateTime  @default(now())
+
+  subjects       TeacherSubject[]
+  timetableSlots TimetableSlot[]
+  assignments    Assignment[]
+  tests          Test[]
+  classes        ClassTeacher[]
+
+  @@index([employeeId])
+}
+
+model ParentProfile {
+  id           String  @id @default(uuid())
+  userId       String  @unique
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  occupation   String?
+  relationship String?
+
+  children ParentStudentLink[]
+}
+
+model ParentStudentLink {
+  id               String         @id @default(uuid())
+  parentProfileId  String
+  studentProfileId String
+  parentProfile    ParentProfile  @relation(fields: [parentProfileId], references: [id], onDelete: Cascade)
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+
+  @@unique([parentProfileId, studentProfileId])
+}
+
+// ─── Academic Structure ───────────────────────────────────────────────────────
+
+model AcademicYear {
+  id         String   @id @default(uuid())
+  name       String
+  startDate  DateTime
+  endDate    DateTime
+  isCurrent  Boolean  @default(false)
+  classes    Class[]
+  timetables Timetable[]
+
+  @@index([isCurrent])
+}
+
+model Class {
+  id             String       @id @default(uuid())
+  name           String
+  grade          String
+  section        String
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  roomNumber     String?
+  capacity       Int          @default(40)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+
+  students       StudentProfile[]
+  teachers       ClassTeacher[]
+  timetableSlots TimetableSlot[]
+  attendances    Attendance[]
+  announcements  Announcement[]
+
+  @@unique([name, academicYearId])
+  @@index([grade])
+}
+
+model ClassTeacher {
+  id               String         @id @default(uuid())
+  classId          String
+  teacherProfileId String
+  isClassTeacher   Boolean        @default(false)
+  class            Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacherProfile   TeacherProfile @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, teacherProfileId])
+}
+
+model Subject {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  description String?
+  credits     Int      @default(1)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  teachers       TeacherSubject[]
+  timetableSlots TimetableSlot[]
+  assignments    Assignment[]
+  tests          Test[]
+  grades         Grade[]
+
+  @@index([code])
+}
+
+model TeacherSubject {
+  id               String         @id @default(uuid())
+  teacherProfileId String
+  subjectId        String
+  teacherProfile   TeacherProfile @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
+  subject          Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherProfileId, subjectId])
+}
+
+// ─── Timetable ────────────────────────────────────────────────────────────────
+
+model Timetable {
+  id             String       @id @default(uuid())
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  name           String
+  effectiveFrom  DateTime
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+
+  slots TimetableSlot[]
+}
+
+model TimetableSlot {
+  id               String         @id @default(uuid())
+  timetableId      String
+  timetable        Timetable      @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  classId          String
+  class            Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId        String
+  subject          Subject        @relation(fields: [subjectId], references: [id])
+  teacherProfileId String
+  teacherProfile   TeacherProfile @relation(fields: [teacherProfileId], references: [id])
+  dayOfWeek        DayOfWeek
+  startTime        String
+  endTime          String
+  roomNumber       String?
+  isActive         Boolean        @default(true)
+
+  classSessions ClassSession[]
+
+  @@index([timetableId])
+  @@index([classId])
+  @@index([teacherProfileId])
+  @@index([dayOfWeek])
+}
+
+model ClassSession {
+  id              String        @id @default(uuid())
+  timetableSlotId String
+  timetableSlot   TimetableSlot @relation(fields: [timetableSlotId], references: [id])
+  title           String?
+  scheduledAt     DateTime
+  startedAt       DateTime?
+  endedAt         DateTime?
+  meetingLink     String?
+  isLive          Boolean       @default(false)
+  durationMinutes Int?
+  createdAt       DateTime      @default(now())
+
+  attendances Attendance[]
+
+  @@index([timetableSlotId])
+  @@index([scheduledAt])
+}
+
+// ─── Attendance ───────────────────────────────────────────────────────────────
+
+model Attendance {
+  id               String           @id @default(uuid())
+  studentProfileId String
+  studentProfile   StudentProfile   @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  classSessionId   String?
+  classSession     ClassSession?    @relation(fields: [classSessionId], references: [id])
+  classId          String
+  class            Class            @relation(fields: [classId], references: [id])
+  date             DateTime
+  status           AttendanceStatus @default(ABSENT)
+  joinedAt         DateTime?
+  leftAt           DateTime?
+  durationMinutes  Int?
+  markedBy         String?
+  remarks          String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([studentProfileId, classSessionId])
+  @@index([studentProfileId])
+  @@index([classId])
+  @@index([date])
+}
+
+// ─── Assignment ───────────────────────────────────────────────────────────────
+
+model Assignment {
+  id               String           @id @default(uuid())
+  title            String
+  description      String?
+  subjectId        String
+  subject          Subject          @relation(fields: [subjectId], references: [id])
+  teacherProfileId String
+  teacherProfile   TeacherProfile   @relation(fields: [teacherProfileId], references: [id])
+  dueDate          DateTime
+  totalMarks       Int              @default(100)
+  attachmentUrl    String?
+  status           AssignmentStatus @default(DRAFT)
+  allowLate        Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+
+  submissions Submission[]
+
+  @@index([subjectId])
+  @@index([teacherProfileId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+model Submission {
+  id               String           @id @default(uuid())
+  assignmentId     String
+  assignment       Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentProfileId String
+  studentProfile   StudentProfile   @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  fileUrl          String?
+  content          String?
+  status           SubmissionStatus @default(PENDING)
+  isLate           Boolean          @default(false)
+  marksObtained    Float?
+  feedback         String?
+  gradedAt         DateTime?
+  gradedBy         String?
+  submittedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([assignmentId, studentProfileId])
+  @@index([assignmentId])
+  @@index([studentProfileId])
+  @@index([status])
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+model Test {
+  id                 String         @id @default(uuid())
+  title              String
+  description        String?
+  subjectId          String
+  subject            Subject        @relation(fields: [subjectId], references: [id])
+  teacherProfileId   String
+  teacherProfile     TeacherProfile @relation(fields: [teacherProfileId], references: [id])
+  durationMinutes    Int            @default(60)
+  totalMarks         Int            @default(100)
+  passingMarks       Int            @default(40)
+  startTime          DateTime?
+  endTime            DateTime?
+  status             TestStatus     @default(DRAFT)
+  randomizeQuestions Boolean        @default(true)
+  allowReview        Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  deletedAt          DateTime?
+
+  questions Question[]
+  attempts  TestAttempt[]
+
+  @@index([subjectId])
+  @@index([status])
+}
+
+model Question {
+  id            String       @id @default(uuid())
+  testId        String
+  test          Test         @relation(fields: [testId], references: [id], onDelete: Cascade)
+  questionText  String
+  questionType  QuestionType @default(MCQ)
+  options       Json?
+  correctAnswer String?
+  marks         Float        @default(1)
+  explanation   String?
+  orderIndex    Int          @default(0)
+  createdAt     DateTime     @default(now())
+
+  responses QuestionResponse[]
+
+  @@index([testId])
+}
+
+model TestAttempt {
+  id               String         @id @default(uuid())
+  testId           String
+  test             Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  startedAt        DateTime       @default(now())
+  submittedAt      DateTime?
+  isAutoSubmitted  Boolean        @default(false)
+  marksObtained    Float?
+  percentage       Float?
+  isPassed         Boolean?
+  timeTaken        Int?
+  createdAt        DateTime       @default(now())
+
+  responses QuestionResponse[]
+
+  @@unique([testId, studentProfileId])
+  @@index([testId])
+  @@index([studentProfileId])
+}
+
+model QuestionResponse {
+  id             String      @id @default(uuid())
+  attemptId      String
+  attempt        TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedAnswer String?
+  isCorrect      Boolean?
+  marksAwarded   Float?
+  createdAt      DateTime    @default(now())
+
+  @@unique([attemptId, questionId])
+}
+
+// ─── Grades ───────────────────────────────────────────────────────────────────
+
+model Grade {
+  id               String         @id @default(uuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  subjectId        String
+  subject          Subject        @relation(fields: [subjectId], references: [id])
+  examType         String
+  marksObtained    Float
+  totalMarks       Float
+  grade            String?
+  remarks          String?
+  gradedAt         DateTime       @default(now())
+
+  @@index([studentProfileId])
+  @@index([subjectId])
+}
+
+// ─── Notes ────────────────────────────────────────────────────────────────────
+
+model Note {
+  id               String   @id @default(uuid())
+  title            String
+  description      String?
+  subjectId        String
+  teacherProfileId String
+  fileUrl          String
+  fileType         String
+  fileSize         Int?
+  version          Int      @default(1)
+  isApproved       Boolean  @default(false)
+  approvedBy       String?
+  downloadCount    Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+
+  @@index([subjectId])
+  @@index([teacherProfileId])
+}
+
+// ─── Announcements ────────────────────────────────────────────────────────────
+
+model Announcement {
+  id          String    @id @default(uuid())
+  title       String
+  content     String
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+  classId     String?
+  class       Class?    @relation(fields: [classId], references: [id])
+  targetRoles Role[]
+  isPinned    Boolean   @default(false)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([authorId])
+  @@index([classId])
+}
+
+// ─── Messaging ────────────────────────────────────────────────────────────────
+
+model Conversation {
+  id           String      @id @default(uuid())
+  type         MessageType @default(DIRECT)
+  name         String?
+  participants ConversationParticipant[]
+  messages     Message[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id])
+  content        String
+  attachmentUrl  String?
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ─── Activity Log ─────────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id          String    @id @default(uuid())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  action      String
+  entity      String?
+  entityId    String?
+  description String
+  ipAddress   String?
+  userAgent   String?
+  level       LogLevel  @default(INFO)
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([level])
+}
