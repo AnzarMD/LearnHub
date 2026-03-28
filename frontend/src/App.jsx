@@ -6,12 +6,12 @@ import { ToastContainer }   from "@components/common";
 import DashboardLayout      from "@layouts/DashboardLayout";
 import ProtectedRoute       from "@router/ProtectedRoute";
 
-// Auth Pages
+// Auth Pages Imports
 import LoginPage            from "@pages/auth/LoginPage";
 import RegisterPage         from "@pages/auth/RegisterPage";
 import ForgotPasswordPage   from "@pages/auth/ForgotPasswordPage";
 
-// Role Dashboards
+// Role Dashboards Imports
 import AdminDashboard       from "@pages/admin/AdminDashboard";
 import UserManagement       from "@pages/admin/UserManagement";
 import SystemLogs           from "@pages/admin/SystemLogs";
@@ -22,7 +22,7 @@ import OnlineTest           from "@pages/student/OnlineTest";
 import NotesPage            from "@pages/student/NotesPage";
 import ParentDashboard      from "@pages/parent/ParentDashboard";
 
-// Shared Pages
+// Shared Pages imports
 import TimetablePage        from "@pages/shared/TimetablePage";
 import AnalyticsPage        from "@pages/shared/AnalyticsPage";
 import MessagesPage         from "@pages/shared/MessagesPage";
