@@ -3,6 +3,7 @@
 /**
  * Backup script — dumps the PostgreSQL database to a timestamped .sql file.
  * Run: node scripts/backup.js
+ 
  */
 require("dotenv").config();
 const { execSync } = require("child_process");
